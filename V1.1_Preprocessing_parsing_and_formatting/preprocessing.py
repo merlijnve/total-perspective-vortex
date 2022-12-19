@@ -1,7 +1,10 @@
 import mne
 import sys
 import matplotlib.pyplot as plt
+import csv
 from autoreject import get_rejection_threshold
+from pathlib import Path
+
 
 # T0 corresponds to rest
 #
@@ -21,13 +24,14 @@ baseline = [1, 2]
 left_or_hands = [3, 4, 7, 8, 11, 12]
 right_or_feet = [5, 6, 9, 10, 13, 14]
 
-
 # Read from new .edf file
 # raw = mne.io.read_raw_edf(sys.argv[1], preload=True)
 # Read from saved .fif file
-print(mne.channels.get_builtin_montages())
 raw = mne.io.read_raw_fif(sys.argv[1] + '-filt-raw.fif', preload=True)
-raw.set_montage('standard_1010')
+
+# Set montage after standardizing the datasets ch_names
+mne.datasets.eegbci.standardize(raw)
+raw.set_montage("standard_1005")
 
 # Read events from raw
 events = mne.events_from_annotations(raw)
@@ -64,7 +68,21 @@ ica.fit(epochs_ica,
         reject=reject,
         tstep=tstep)
 
-ica.plot_components()
+# Plot ICA components (use picks arg to show more than 5)
+# ica.plot_properties(epochs_ica, psd_args={'fmax': hi_cut})
+
+# Find and exclude Electro Oculogram (EOG) components (blinks, eye movements)
+ica_z_thresh = 1.96
+eog_indices, eog_scores = ica.find_bads_eog(raw_ica,
+                                            ch_name=['Fp1', 'F8'],
+                                            threshold=ica_z_thresh)
+ica.exclude = eog_indices
+
+# Plot EOG scores (red = bad)
+# ica.plot_scores(eog_scores)
+
+ica.save(sys.argv[1] + '-ica.fif',
+         overwrite=True)
 
 # Create power spectral density plot
 # raw_filt.plot_psd()

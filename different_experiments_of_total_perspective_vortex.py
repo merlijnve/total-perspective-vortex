@@ -141,7 +141,7 @@ f_low = 1.0
 f_high = 15.0
 
 csp_params = {
-    "n_components": 6,
+    "n_components": 4,
     "reg": 0.3
 }
 
@@ -341,7 +341,7 @@ def average_over_epochs(ex):
     new_x = []
     new_y = []
 
-    avg_size = 20
+    avg_size = 80
     print("Averaging epochs over size: ", avg_size, "...")
 
     event_id = E_train.event_id

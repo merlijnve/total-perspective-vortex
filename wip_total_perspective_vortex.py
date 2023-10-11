@@ -86,24 +86,24 @@ from mne.preprocessing import ICA
 import numpy as np
 import mne
 experiments = [
-    {
-        "name": "Left_right_fist",
-        "description": "open and close left or right fist",
-        "runs": [3, 7, 11],
-        "mapping": {0: "Rest", 1: "Left fist", 2: "Right fist"},
-    },
+    # {
+    #     "name": "Left_right_fist",
+    #     "description": "open and close left or right fist",
+    #     "runs": [3, 7, 11],
+    #     "mapping": {0: "Rest", 1: "Left fist", 2: "Right fist"},
+    # },
     # {
     #     "name": "Imagine_left_right_fist",
     #     "description": "imagine opening and closing left or right fist",
     #     "runs": [4, 8, 12],
     #     "mapping": {0: "Rest", 1: "Imagine left fist", 2: "Imagine right fist"},
     # },
-    # {
-    #     "name": "Fists_feet",
-    #     "description": "open and close both fists or both feet",
-    #     "runs": [5, 9, 13],
-    #     "mapping": {0: "Rest", 1: "Both fists", 2: "Both feet"},
-    # },
+    {
+        "name": "Fists_feet",
+        "description": "open and close both fists or both feet",
+        "runs": [5, 9, 13],
+        "mapping": {0: "Rest", 1: "Both fists", 2: "Both feet"},
+    },
     # {
     #     "name": "Imagine_fists_feet",
     #     "description": "imagine opening and closing both fists or both feet",

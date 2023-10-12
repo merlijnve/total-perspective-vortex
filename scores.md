@@ -7,6 +7,6 @@
 
 ___________________________
 ### Mean scores
-####Train:  0.86
-####Crossval:  0.82
-###Test:  0.68
+#### Train:  0.86
+#### Crossval:  0.82
+### Test:  0.68

@@ -57,23 +57,9 @@ import numpy as np
 import mne
 
 from MyCSP import MyCSP
-from config import experiments
+from config import experiments, amount_of_subjects, amount_of_runs, batch_read
+from config import plotting, good_channels, csp_params
 from config import DATASET_PATH
-
-amount_of_subjects = 109
-amount_of_runs = 14
-batch_read = 50
-
-plotting = False
-
-good_channels = ["C5",  "C3",  "C1",  "Cz",  "C2",  "C4",  "C6"]
-
-f_low = 1.0
-f_high = 15.0
-
-csp_params = {
-    "n_components": 4
-}
 
 
 def get_filepath(subject_nr=1, run_nr=1):
@@ -102,7 +88,7 @@ def get_mapping(run_nr):
     return event_mapping
 
 
-def read_dataset_batch(ex_nr, batch, start):
+def read_dataset_batch(ex_nr, batch, start, runs=make_runs()):
     raws = []
 
     batch_counter = batch
@@ -119,15 +105,15 @@ def read_dataset_batch(ex_nr, batch, start):
                 raw.set_montage("standard_1005")
 
                 events, _ = mne.events_from_annotations(
-                                                    raw,
-                                                    event_id=dict(T1=1, T2=2))
+                    raw,
+                    event_id=dict(T1=1, T2=2))
                 mapping = get_mapping(r[0])
-                ann = mne.annotations_from_events(
-                                        events=events,
-                                        event_desc=mapping,
-                                        sfreq=raw.info["sfreq"]
-                                        )
-                raw.set_annotations(ann)
+                annotations = mne.annotations_from_events(
+                    events=events,
+                    event_desc=mapping,
+                    sfreq=raw.info["sfreq"]
+                )
+                raw.set_annotations(annotations)
                 raws.append(raw)
                 batch_counter -= 1
             else:
@@ -148,18 +134,8 @@ def read_dataset_batch(ex_nr, batch, start):
 def plot_raw(raw):
     """**Plot an instance of raw data**"""
     if plotting:
+        events, _ = mne.events_from_annotations(raw)
         raw.plot(scalings=dict(eeg=250e-6), events=events)
-
-
-def plot_psd_raw(raw, fmin=0, fmax=np.inf):
-    """**Plot the (average) Power Spectral Density of a raw instance**
-
-    The power spectral density (PSD) of the signal describes the power
-    present in the signal as a function of frequency, per unit frequency.
-    """
-    if plotting:
-        psd = raw.compute_psd(fmin=fmin, fmax=fmax)
-        psd.plot(average=True)
 
 
 def filter_raw(raw):
@@ -168,6 +144,9 @@ def filter_raw(raw):
     - Simple bandpass
     - Notch filter to filter out 60hz electrical signals
     """
+    f_low = 1.0
+    f_high = 15.0
+
     raw_filtered = raw.copy()
     raw_filtered.notch_filter(60, method="iir")
     raw_filtered.filter(f_low, f_high, fir_design="firwin",
@@ -175,7 +154,7 @@ def filter_raw(raw):
     return raw_filtered
 
 
-def create_epochs(raw):
+def create_epochs(raw, events, event_id):
     """**Creating epochs**
 
     In the MNE-Python library, an "epoch" is a defined time window of EEG
@@ -190,7 +169,7 @@ def create_epochs(raw):
 
     epochs = mne.Epochs(raw,
                         events=events,
-                        event_id=event_dict,
+                        event_id=event_id,
                         tmin=tmin, tmax=tmax,
                         baseline=baseline,
                         picks=picks,
@@ -205,7 +184,8 @@ def balance_classes(epochs):
     event_id = epochs.event_id
     keys = list(event_id.keys())
 
-    small, big = (keys[0], keys[1]) if len(epochs[keys[0]]) < len(epochs[keys[1]]) else (keys[1], keys[0])
+    small, big = (keys[0], keys[1]) if len(epochs[keys[0]]) < len(
+        epochs[keys[1]]) else (keys[1], keys[0])
     diff = len(epochs[big]) - len(epochs[small])
 
     indices = []
@@ -219,18 +199,22 @@ def balance_classes(epochs):
     return epochs
 
 
-def plot_evoked(evoked):
+def plot_evoked(epochs):
     """**Plotting an evoked**"""
     if plotting:
+        keys = list(epochs.event_id.keys())
+
+        evoked = epochs[keys[0]].average()
+
         evoked.plot(gfp=True)
         evoked.plot_topomap(times=[-0.2, 0.2, 0.4, 0.6, 0.8], average=0.05)
 
 
-if plotting:
-    plot_evoked(experiments[0]["epochs"]['Left fist'].average())
+def plot_epochs_image(epochs):
+    if plotting:
+        keys = list(epochs.event_id.keys())
 
-if plotting:
-    experiments[0]["epochs"]['Left fist'].plot_image(picks=["Cz"])
+        epochs[keys[0]].plot_image(picks=["Cz"])
 
 
 def split_epochs_train_test(experiment):
@@ -293,10 +277,6 @@ def plot_csp_separation(X, y):
         plt.show()
 
 
-if plotting:
-    plot_csp_separation(experiments[0]["X_avg"], experiments[0]["y_avg"])
-
-
 """# V.1.2 Treatment pipeline
 
 Then the processing pipeline has to be set up:
@@ -323,20 +303,15 @@ transformerMixin classes of sklearn)
 
 """
 
-if plotting:
-    mne.viz.plot_compare_evokeds(
-        dict(left_fist=experiments[0]["epochs"]["Left fist"].average(),
-             right_fist=experiments[0]["epochs"]["Right fist"].average()),
-        legend="upper left"
-    )
 
-if plotting:
-    experiments[0]["epochs"]["Left fist"].average().plot_joint(picks="eeg")
-    _ = plot_evoked(experiments[0]["epochs"]["Left fist"].average())
-
-if plotting:
-    experiments[0]["epochs"]["Left fist"].average().compute_psd().plot()
-    experiments[0]["epochs"]["Right fist"].average().compute_psd().plot()
+def plot_compare_evokeds(epochs):
+    if plotting:
+        keys = list(epochs.event_id.keys())
+        mne.viz.plot_compare_evokeds(
+            dict(left_fist=epochs[keys[0]].average(),
+                 right_fist=epochs[keys[1]].average()),
+            legend="upper left"
+        )
 
 
 """# V.1.4 Train, Validation, and Test
@@ -352,7 +327,6 @@ Test set (Do not overfit, with different splits each time)
 
 • You can train/predict on the subject and the task of your choice
 """
-cv = ShuffleSplit(10, test_size=0.2, random_state=42)
 
 
 def make_clf():
@@ -387,61 +361,73 @@ def split_train_test(experiment):
     return X_test, y_test, X_train, y_train
 
 
-for i, ex in enumerate(experiments):
-    ex["epochs"] = []
-    runs = make_runs()
-    batch_start = 0
-    buffer = read_dataset_batch(i, batch_read, batch_start)
-    while buffer is not None:
-        ex["raw"] = buffer
-        events, event_dict = mne.events_from_annotations(ex["raw"])
-        batch_start += batch_read
-
-        ex["epochs"].append(create_epochs(ex["raw"]))
-        del ex["raw"]
-        buffer = read_dataset_batch(i, batch_read, batch_start)
-
-    ex["epochs"] = mne.concatenate_epochs(ex["epochs"])
-    ex["epochs"] = balance_classes(ex["epochs"])
-
-    ex["X"] = ex["epochs"].get_data()
-    ex['y'] = ex["epochs"].events[:, -1]
-
-    ex["X_avg"], ex["y_avg"] = average_over_epochs(ex)
-    plot_csp_separation(ex["X_avg"], ex["y_avg"])
-
-    ex["clf"] = make_clf()
-
-    ex["clf"].fit(ex["X_avg"], ex["y_avg"])
-    dump_model(ex)
-
-    ex["crossval_scores"] = cross_val_score(
-        ex["clf"], ex["X_avg"], ex["y_avg"], cv=cv, error_score='raise')
-
-
-test_scores = []
-train_scores = []
-crossval_scores = []
-print()
-
-for ex in experiments:
-    X_test, y_test, X_train, y_train = split_train_test(ex)
-    train_score = ex["clf"].score(ex["X_avg"], ex["y_avg"])
-    test_score = ex["clf"].score(X_test, y_test)
-
-    print(ex["name"])
-    print("Train: ", train_score)
-    train_scores.append(train_score)
-
-    print("Test: ", test_score)
-    test_scores.append(test_score)
-
-    print("Crossval: %f" % (np.mean(ex["crossval_scores"])))
-    crossval_scores.append(np.mean(ex["crossval_scores"]))
-
+def score_and_print_results():  
+    test_scores = []
+    train_scores = []
+    crossval_scores = []
     print()
 
-print("Mean scores")
-print("Train: ", round(sum(train_scores) / len(train_scores), 2))
-print("Test: ", round(sum(test_scores) / len(test_scores), 2))
-print("Crossval: ", round(sum(crossval_scores) / len(crossval_scores), 2))
+    for ex in experiments:
+        X_test, y_test, X_train, y_train = split_train_test(ex)
+        train_score = ex["clf"].score(ex["X_avg"], ex["y_avg"])
+        test_score = ex["clf"].score(X_test, y_test)
+
+        print(ex["name"])
+        print("Train: ", train_score)
+        train_scores.append(train_score)
+
+        print("Test: ", test_score)
+        test_scores.append(test_score)
+
+        print("Crossval: %f" % (np.mean(ex["crossval_scores"])))
+        crossval_scores.append(np.mean(ex["crossval_scores"]))
+
+        print()
+
+    print("Mean scores")
+    print("Train: ", round(sum(train_scores) / len(train_scores), 2))
+    print("Test: ", round(sum(test_scores) / len(test_scores), 2))
+    print("Crossval: ", round(sum(crossval_scores) / len(crossval_scores), 2))
+
+
+def main():
+    for i, ex in enumerate(experiments):
+        ex["epochs"] = []
+        batch_start = 0
+        buffer = read_dataset_batch(i, batch_read, batch_start)
+        plot_raw(buffer)
+        while buffer is not None:
+            ex["raw"] = buffer
+            events, event_id = mne.events_from_annotations(ex["raw"])
+            batch_start += batch_read
+
+            ex["epochs"].append(create_epochs(ex["raw"], events, event_id))
+            del ex["raw"]
+            buffer = read_dataset_batch(i, batch_read, batch_start)
+
+        ex["epochs"] = mne.concatenate_epochs(ex["epochs"])
+        ex["epochs"] = balance_classes(ex["epochs"])
+        plot_evoked(ex["epochs"])
+        plot_epochs_image(ex["epochs"])
+        plot_compare_evokeds(ex["epochs"])
+
+        ex["X"] = ex["epochs"].get_data()
+        ex['y'] = ex["epochs"].events[:, -1]
+
+        ex["X_avg"], ex["y_avg"] = average_over_epochs(ex)
+        plot_csp_separation(ex["X_avg"], ex["y_avg"])
+
+        ex["clf"] = make_clf()
+
+        ex["clf"].fit(ex["X_avg"], ex["y_avg"])
+        dump_model(ex)
+
+        cv = ShuffleSplit(10, test_size=0.2, random_state=42)
+        ex["crossval_scores"] = cross_val_score(
+            ex["clf"], ex["X_avg"], ex["y_avg"], cv=cv, error_score='raise')
+
+    score_and_print_results()
+
+
+if __name__ == "__main__":
+    main()

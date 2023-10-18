@@ -1,6 +1,18 @@
 DATASET_PATH = "/Users/mvan-eng/goinfre/dataset/"
 MODELS_PATH = "./models/"
 
+amount_of_subjects = 10
+amount_of_runs = 14
+batch_read = 50
+
+plotting = True
+
+good_channels = ["C5",  "C3",  "C1",  "Cz",  "C2",  "C4",  "C6"]
+
+csp_params = {
+    "n_components": 4
+}
+
 experiments = [
     {
         "name": "Left_right_fist",

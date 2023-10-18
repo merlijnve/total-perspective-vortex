@@ -4,7 +4,6 @@ import numpy as np
 
 
 class MyCSP(TransformerMixin, BaseEstimator):
-    print("MyCSP")
 
     def __init__(self, n_components=4):
         self.n_components = n_components

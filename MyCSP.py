@@ -1,6 +1,7 @@
 from sklearn.base import TransformerMixin, BaseEstimator
-from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+from sklearn.utils.validation import check_array, check_is_fitted
 import numpy as np
+
 
 class MyCSP(TransformerMixin, BaseEstimator):
     print("MyCSP")
@@ -11,18 +12,19 @@ class MyCSP(TransformerMixin, BaseEstimator):
     def reshape_data(self, class_data):
         epochs, channels, time_points = class_data.shape
 
-        class_data_2d = np.reshape(class_data, (epochs * channels, time_points))
+        class_data_2d = np.reshape(class_data, (epochs * channels,
+                                                time_points))
 
         return class_data_2d
 
     def fit(self, X, y=None):
         X = check_array(X, ensure_2d=False, allow_nd=True, accept_sparse=True)
-        
+
         # Set n_features for validation on transform
         self.n_features_ = X.shape[1]
-        
+
         # Implement Common Spatial Pattern algorithm
-        
+
         class_1_data = X[y == 1]
         class_2_data = X[y == 2]
 
@@ -37,7 +39,8 @@ class MyCSP(TransformerMixin, BaseEstimator):
         # Calculate the joint covariance matrix
         cov_joint = cov_class_1 + cov_class_2
 
-        # Calculate the eigenvalues and eigenvectors of the joint covariance matrix
+        # Calculate the eigenvalues and eigenvectors of the
+        # joint covariance matrix
         eigenvalues, eigenvectors = np.linalg.eigh(cov_joint)
 
         # Sort the eigenvalues in descending order
@@ -62,16 +65,15 @@ class MyCSP(TransformerMixin, BaseEstimator):
             raise ValueError('Shape of input is different from what was seen'
                              'in `fit`')
 
-
         # Apply the CSP filters to the data
-        transformed_data = []
+        transformed = []
         for trial in X:
             transformed_trial = np.dot(trial, self.filters_)
-            transformed_data.append(transformed_trial)
-        
-        transformed_data = np.array(transformed_data)
+            transformed.append(transformed_trial)
+
+        transformed = np.array(transformed)
 
         # Reshape the transformed data into a 2D array
-        transformed_data = transformed_data.reshape(transformed_data.shape[0], -1)
+        transformed = transformed.reshape(transformed.shape[0], -1)
 
-        return transformed_data
+        return transformed

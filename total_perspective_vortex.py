@@ -8,18 +8,17 @@
 
 # V.1.1 Preprocessing, parsing and formatting
 
-First, you’ll need to parse and explore EEG data with MNE, from physionet. You will
-have to write a script to visualize raw data and then filter it to keep only useful frequency
-bands, and visualize again after this preprocessing.
+First, you’ll need to parse and explore EEG data with MNE, from physionet.
+You will have to write a script to visualize raw data and then filter it to
+keep only useful frequency bands, and visualize again after this preprocessing.
 
-This part is where you’ll decide which features you’ll extract from the signals to feed them
-to your algorithm. So you’ll have to be thorough in picking what matters for the desired
-output.
+This part is where you’ll decide which features you’ll extract from the
+signals to feed them to your algorithm. So you’ll have to be thorough in
+picking what matters for the desired output.
 
-One example is to use the power of the signal by frequency and by channel to the pipeline’s
-input.
-Most of the algorithms linked to filtering and obtaining the signal’s specter use Fourier
-transform or wavelet transform (cf. bonus).
+One example is to use the power of the signal by frequency and by channel to
+the pipeline’s input. Most of the algorithms linked to filtering and obtaining
+the signal’s specter use Fourier transform or wavelet transform (cf. bonus).
 
 **Experiment structure**
 
@@ -47,20 +46,12 @@ dataset/S{subject_nr}/S{subject_nr}{run_nr}.edf
 ```
 """
 
-from sklearn.decomposition import PCA
-from mne.decoding import UnsupervisedSpatialFilter
-from sklearn.model_selection import LearningCurveDisplay
 import joblib
 import matplotlib.pyplot as plt
 import math
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.svm import LinearSVC
-from sklearn.feature_selection import SelectFromModel
-from sklearn.preprocessing import StandardScaler, PolynomialFeatures, PowerTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import ShuffleSplit, cross_val_score
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from mne.decoding import CSP
 from mne import pick_types
 import numpy as np
 import mne
@@ -73,41 +64,57 @@ experiments = [
         "name": "Left_right_fist",
         "description": "open and close left or right fist",
         "runs": [3, 7, 11],
-        "mapping": {0: "Rest", 1: "Left fist", 2: "Right fist"},
+        "mapping": {
+            0: "Rest",
+            1: "Left fist",
+            2: "Right fist"
+        },
     },
     {
         "name": "Imagine_left_right_fist",
         "description": "imagine opening and closing left or right fist",
         "runs": [4, 8, 12],
-        "mapping": {0: "Rest", 1: "Imagine left fist", 2: "Imagine right fist"},
+        "mapping": {
+            0: "Rest",
+            1: "Imagine left fist",
+            2: "Imagine right fist"
+        },
     },
     {
         "name": "Fists_feet",
         "description": "open and close both fists or both feet",
         "runs": [5, 9, 13],
-        "mapping": {0: "Rest", 1: "Both fists", 2: "Both feet"},
+        "mapping": {
+            0: "Rest",
+            1: "Both fists",
+            2: "Both feet"
+        },
     },
     {
         "name": "Imagine_fists_feet",
         "description": "imagine opening and closing both fists or both feet",
         "runs": [6, 10, 14],
-        "mapping": {0: "Rest", 1: "Imagine both fists", 2: "Imagine both feet"},
+        "mapping": {
+            0: "Rest",
+            1: "Imagine both fists",
+            2: "Imagine both feet"
+        },
     },
-    {
-        "name": "Movement_of_fists",
-        "description": "movement (real or imagined) of fists",
-        "runs": [3, 7, 11, 4, 8, 12],
-        "mapping": {0: "Rest", 1: "Left fist", 2: "Right fist"},
-    },
-    {
-        "name": "Movement_fists_feet",
-        "description": "movement (real or imagined) of fists or feet",
-        "runs": [5, 9, 13, 6, 10, 14],
-        "mapping": {0: "Rest", 1: "Both fists", 2: "Both feet"},
-    },
+    # {
+    #     "name": "Movement_of_fists",
+    #     "description": "movement (real or imagined) of fists",
+    #     "runs": [3, 7, 11, 4, 8, 12],
+    #     "mapping": {0: "Rest", 1: "Left fist", 2: "Right fist"},
+    # },
+    # {
+    #     "name": "Movement_fists_feet",
+    #     "description": "movement (real or imagined) of fists or feet",
+    #     "runs": [5, 9, 13, 6, 10, 14],
+    #     "mapping": {0: "Rest", 1: "Both fists", 2: "Both feet"},
+    # },
 ]
 
-PATH = "./dataset/"
+PATH = "/Users/mvan-eng/goinfre/dataset/"
 amount_of_subjects = 109
 amount_of_runs = 14
 batch_read = 50
@@ -124,18 +131,13 @@ csp_params = {
 }
 
 
-def run_key(subject_nr=1, run_nr=1):
-    subject = "S{:03d}".format(subject_nr)
-    run = "R{:02d}".format(run_nr)
-    return subject + run
-
-
 def get_filepath(subject_nr=1, run_nr=1):
     subject = "S{:03d}".format(subject_nr)
     run = "R{:02d}".format(run_nr)
     filename = subject + "/" + subject + run + ".edf"
     filepath = PATH + filename
     return filepath
+
 
 def make_runs():
     """**Creating a metadata array containing information about all runs**"""
@@ -155,29 +157,41 @@ def get_mapping(run_nr):
     return event_mapping
 
 
-def read_dataset(experiment):
-    """**Read dataset**"""
+def read_dataset_batch(ex_nr, batch, start):
     raws = []
+
+    batch_counter = batch
+    start_counter = start
     for r in runs:
-        if r[0] in experiment["runs"]:
-            # Read from new .edf file
-            raw = mne.io.read_raw_edf(r[1], preload=True)
-            # Resample to match frequencies
-            if raw.info['sfreq'] != 160.0:
-                raw.resample(sfreq=160.0)
-            mne.datasets.eegbci.standardize(raw)
-            raw.set_montage("standard_1005")
+        if r[0] in experiments[ex_nr]["runs"]:
+            if batch_counter == 0:
+                break
+            if start_counter == 0:
+                raw = mne.io.read_raw_edf(r[1], preload=True)
+                if raw.info['sfreq'] != 160.0:
+                    raw.resample(sfreq=160.0)
+                mne.datasets.eegbci.standardize(raw)
+                raw.set_montage("standard_1005")
 
-            events, _ = mne.events_from_annotations(
-                raw, event_id=dict(T1=1, T2=2))
-            mapping = get_mapping(r[0])
-            annot_from_events = mne.annotations_from_events(events=events,
-                                                            event_desc=mapping,
-                                                            sfreq=raw.info["sfreq"])
+                events, _ = mne.events_from_annotations(
+                                                    raw,
+                                                    event_id=dict(T1=1, T2=2))
+                mapping = get_mapping(r[0])
+                ann = mne.annotations_from_events(
+                                        events=events,
+                                        event_desc=mapping,
+                                        sfreq=raw.info["sfreq"]
+                                        )
+                raw.set_annotations(ann)
+                raws.append(raw)
+                batch_counter -= 1
+            else:
+                start_counter -= 1
 
-            raw.set_annotations(annot_from_events)
-            raws.append(raw)
+    if len(raws) == 0:
+        return None
     raw = mne.concatenate_raws(raws)
+    raw = filter_raw(raw)
 
     channels = raw.info["ch_names"]
     bad_channels = [x for x in channels if x not in good_channels]
@@ -185,59 +199,22 @@ def read_dataset(experiment):
 
     return raw
 
-def read_dataset_batch(ex_nr, batch, start):
-  raws = []
 
-  batch_counter = batch
-  start_counter = start
-  for r in runs:
-    if r[0] in experiments[ex_nr]["runs"]:
-      if batch_counter == 0:
-        break
-      if start_counter == 0:
-        raw = mne.io.read_raw_edf(r[1], preload=True)
-        if raw.info['sfreq'] != 160.0:
-            raw.resample(sfreq=160.0)
-        mne.datasets.eegbci.standardize(raw)
-        raw.set_montage("standard_1005")
-
-        events, _ = mne.events_from_annotations(raw, event_id=dict(T1=1, T2=2))
-        mapping = get_mapping(r[0])
-        annot_from_events = mne.annotations_from_events(events=events,
-                                                    event_desc=mapping,
-                                                    sfreq=raw.info["sfreq"])
-        raw.set_annotations(annot_from_events)
-        raws.append(raw)
-        batch_counter -= 1
-      else:
-         start_counter -= 1
-  
-  if len(raws) == 0:
-    return None
-  raw = mne.concatenate_raws(raws)
-  raw = filter_raw(raw)
-
-  channels = raw.info["ch_names"]
-  bad_channels = [x for x in channels if x not in good_channels]
-  raw.drop_channels(bad_channels)
-  
-  return raw
-
-def plot_raw():
+def plot_raw(raw):
     """**Plot an instance of raw data**"""
     if plotting:
         raw.plot(scalings=dict(eeg=250e-6), events=events)
 
+
 def plot_psd_raw(raw, fmin=0, fmax=np.inf):
     """**Plot the (average) Power Spectral Density of a raw instance**
 
-    The power spectral density (PSD) of the signal describes the power present in the signal as a function of frequency, per unit frequency.
+    The power spectral density (PSD) of the signal describes the power
+    present in the signal as a function of frequency, per unit frequency.
     """
     if plotting:
         psd = raw.compute_psd(fmin=fmin, fmax=fmax)
         psd.plot(average=True)
-
-
 
 
 def filter_raw(raw):
@@ -253,15 +230,13 @@ def filter_raw(raw):
     return raw_filtered
 
 
-
-"""**Creating epochs**
-
-In the MNE-Python library, an "epoch" is a defined time window of EEG (Electroencephalography) or MEG (Magnetoencephalography) data that is extracted from continuous data based on specific events or triggers.
-"""
-
-# todo: balance classes
-
 def create_epochs(raw):
+    """**Creating epochs**
+
+    In the MNE-Python library, an "epoch" is a defined time window of EEG
+    (Electroencephalography) or MEG (Magnetoencephalography) data that is
+    extracted from continuous data based on specific events or triggers.
+    """
     tmin = -.500  # start of each epoch (in sec)
     tmax = 2.000  # end of each epoch (in sec)
     baseline = (None, 0)
@@ -279,6 +254,7 @@ def create_epochs(raw):
 
     return epochs
 
+
 def balance_classes(epochs):
     print("Balancing classes...")
     event_id = epochs.event_id
@@ -286,7 +262,7 @@ def balance_classes(epochs):
 
     small, big = (keys[0], keys[1]) if len(epochs[keys[0]]) < len(epochs[keys[1]]) else (keys[1], keys[0])
     diff = len(epochs[big]) - len(epochs[small])
-    
+
     indices = []
     for i in range(len(epochs.events[:, -1])):
         if len(indices) == diff:
@@ -298,10 +274,8 @@ def balance_classes(epochs):
     return epochs
 
 
-# """**Plotting an evoked**"""
-
-
 def plot_evoked(evoked):
+    """**Plotting an evoked**"""
     if plotting:
         evoked.plot(gfp=True)
         evoked.plot_topomap(times=[-0.2, 0.2, 0.4, 0.6, 0.8], average=0.05)
@@ -310,33 +284,12 @@ def plot_evoked(evoked):
 if plotting:
     plot_evoked(experiments[0]["epochs"]['Left fist'].average())
 
-# if plotting:
-#   experiments[0]["epochs"]['Left fist'].plot_image(picks=["Cz"])
-
-# # **Creating data and targets**
-
-# X = Power Spectral Density of epochs
-def psd_from_epochs(epochs):
-    psd_shape = epochs[0].compute_psd(fmin=f_low, fmax=f_high).get_data().shape
-    X = np.empty((len(epochs), psd_shape[1], psd_shape[2]))
-    for i in range(len(epochs)):
-        X[i] = epochs[i].compute_psd(fmin=f_low, fmax=f_high).get_data()
-    return X
-
-
-def csd_from_epochs(epochs):
-    return mne.preprocessing.compute_current_source_density(epochs).get_data()
-
-
-
-# for ex in experiments:
-#     ex["X"] = psd_from_epochs(ex["epochs"])
-
-# for ex in experiments:
-#     ex["X"] = csd_from_epochs(ex["epochs"])
+if plotting:
+    experiments[0]["epochs"]['Left fist'].plot_image(picks=["Cz"])
 
 
 def split_epochs_train_test(experiment):
+    """ **Creating data and targets**"""
     E = experiment["epochs"]
     y = experiment["y"]
     test_amount = math.ceil(0.15 * len(E))
@@ -373,7 +326,7 @@ def average_over_epochs(ex):
             x_averaged = E_train[keys[0]][i:i+avg_size].average().get_data()
             new_x.append(x_averaged)
             new_y.append(event_id[keys[0]])
-            
+
             x_averaged = E_train[keys[1]][i:i+avg_size].average().get_data()
             new_x.append(x_averaged)
             new_y.append(event_id[keys[1]])
@@ -384,18 +337,19 @@ def average_over_epochs(ex):
 
     return np.array(new_x), np.array(new_y)
 
+
 def plot_csp_separation(X, y):
+    """Plot a scatter_plot of X_train after CSP transformation"""
     if plotting:
         csp = MyCSP(csp_params["n_components"])
         X = csp.fit_transform(X, y)
 
-        # plot a scatter_plot of X_train
         plt.scatter(X[:, 0], X[:, 1], c=y)
         plt.show()
 
 
-# if plotting:
-# plot_csp_separation(experiments[0]["X_avg"], experiments[0]["y_avg"])
+if plotting:
+    plot_csp_separation(experiments[0]["X_avg"], experiments[0]["y_avg"])
 
 
 """# V.1.2 Treatment pipeline
@@ -404,19 +358,23 @@ Then the processing pipeline has to be set up:
 
 • Dimensionality reduction algorithm (i.e.: PCA, ICA, CSP, CSSP...)
 
-• Classification algorithm, there is plenty of choice among those available in sklearn,
-to output the decision of what data chunk corresponds to what kind of motion.
+• Classification algorithm, there is plenty of choice among those available in
+sklearn, to output the decision of what data chunk corresponds to what kind of
+motion.
 
 • "Playback" reading on the file to simulate a data stream.
 
-It is advised to first test your program architecture with sklearn and MNE algorithms, before implementing your own CSP or whatever algorithm you chose.
+It is advised to first test your program architecture with sklearn and MNE
+algorithms, before implementing your own CSP or whatever algorithm you chose.
 
-The program will have to contain a script for training and a script for prediction.
-The script predicting output will have to do it on a stream of data, and within a delay
-of 2s after the data chunk was sent to the processing pipeline. (You should not use
-mne-realtime)
+The program will have to contain a script for training and a script for
+prediction.
+The script predicting output will have to do it on a stream of data, and
+within a delay of 2s after the data chunk was sent to the processing pipeline.
+(You should not use mne-realtime)
 
-You have to use the pipeline object from sklearn (use baseEstimator and transformerMixin classes of sklearn)
+You have to use the pipeline object from sklearn (use baseEstimator and
+transformerMixin classes of sklearn)
 
 """
 
@@ -438,21 +396,22 @@ if plotting:
 
 """# V.1.4 Train, Validation, and Test
 
-• You have to use cross_val_score on the whole processing pipeline, to evaluate your
-classification.
+• You have to use cross_val_score on the whole processing pipeline, to
+evaluate your classification.
 
-• You must choose how to split your data set between Train, Validation, and Test set
-(Do not overfit, with different splits each time)
+• You must choose how to split your data set between Train, Validation, and
+Test set (Do not overfit, with different splits each time)
 
-• You must have 60% mean accuracy on all subjects used in your Test Data (corresponding to the six types of experiment runs and on never-learned data)
+• You must have 60% mean accuracy on all subjects used in your Test Data
+(corresponding to the six types of experiment runs and on never-learned data)
 
 • You can train/predict on the subject and the task of your choice
 """
 cv = ShuffleSplit(10, test_size=0.2, random_state=42)
 
+
 def make_clf():
     csp = MyCSP(csp_params["n_components"])
-
     lda = LinearDiscriminantAnalysis(solver="eigen", shrinkage='auto')
 
     clf = Pipeline([
@@ -485,7 +444,7 @@ for i, ex in enumerate(experiments):
     runs = make_runs()
     batch_start = 0
     buffer = read_dataset_batch(i, batch_read, batch_start)
-    while buffer != None:
+    while buffer is not None:
         ex["raw"] = buffer
         events, event_dict = mne.events_from_annotations(ex["raw"])
         batch_start += batch_read

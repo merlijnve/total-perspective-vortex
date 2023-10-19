@@ -52,83 +52,20 @@ import math
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import ShuffleSplit, cross_val_score
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from mne import pick_types
 import numpy as np
 import mne
+import sys
+import argparse
 
 from MyCSP import MyCSP
-from config import experiments, amount_of_subjects, amount_of_runs, batch_read
-from config import plotting, good_channels, csp_params
-from config import DATASET_PATH
+from config import experiments, batch_read
+from config import plotting, csp_params
+from config import test_size, amount_of_subjects
 
-
-def get_filepath(subject_nr=1, run_nr=1):
-    subject = "S{:03d}".format(subject_nr)
-    run = "R{:02d}".format(run_nr)
-    filename = subject + "/" + subject + run + ".edf"
-    filepath = DATASET_PATH + filename
-    return filepath
-
-
-def make_runs():
-    """**Creating a metadata array containing information about all runs**"""
-    runs = []
-    for subject_nr in range(1, amount_of_subjects + 1):
-        for run_nr in range(3, amount_of_runs + 1):
-            filepath = get_filepath(subject_nr=subject_nr, run_nr=run_nr)
-            runs.append([run_nr, filepath])
-    return runs
-
-
-def get_mapping(run_nr):
-    event_mapping = {}
-    for e in experiments:
-        if run_nr in e["runs"]:
-            event_mapping = e["mapping"]
-    return event_mapping
-
-
-def read_dataset_batch(ex_nr, batch, start, runs=make_runs()):
-    raws = []
-
-    batch_counter = batch
-    start_counter = start
-    for r in runs:
-        if r[0] in experiments[ex_nr]["runs"]:
-            if batch_counter == 0:
-                break
-            if start_counter == 0:
-                raw = mne.io.read_raw_edf(r[1], preload=True)
-                if raw.info['sfreq'] != 160.0:
-                    raw.resample(sfreq=160.0)
-                mne.datasets.eegbci.standardize(raw)
-                raw.set_montage("standard_1005")
-
-                events, _ = mne.events_from_annotations(
-                    raw,
-                    event_id=dict(T1=1, T2=2))
-                mapping = get_mapping(r[0])
-                annotations = mne.annotations_from_events(
-                    events=events,
-                    event_desc=mapping,
-                    sfreq=raw.info["sfreq"]
-                )
-                raw.set_annotations(annotations)
-                raws.append(raw)
-                batch_counter -= 1
-            else:
-                start_counter -= 1
-
-    if len(raws) == 0:
-        return None
-    raw = mne.concatenate_raws(raws)
-    raw = filter_raw(raw)
-
-    channels = raw.info["ch_names"]
-    bad_channels = [x for x in channels if x not in good_channels]
-    raw.drop_channels(bad_channels)
-
-    return raw
+from read_dataset import read_dataset_batch
+from read_dataset import create_epochs
+from read_dataset import read_subject
+from read_dataset import check_subject_and_run
 
 
 def plot_raw(raw):
@@ -136,47 +73,6 @@ def plot_raw(raw):
     if plotting:
         events, _ = mne.events_from_annotations(raw)
         raw.plot(scalings=dict(eeg=250e-6), events=events)
-
-
-def filter_raw(raw):
-    """**Filtering**
-
-    - Simple bandpass
-    - Notch filter to filter out 60hz electrical signals
-    """
-    f_low = 1.0
-    f_high = 15.0
-
-    raw_filtered = raw.copy()
-    raw_filtered.notch_filter(60, method="iir")
-    raw_filtered.filter(f_low, f_high, fir_design="firwin",
-                        skip_by_annotation="edge")
-    return raw_filtered
-
-
-def create_epochs(raw, events, event_id):
-    """**Creating epochs**
-
-    In the MNE-Python library, an "epoch" is a defined time window of EEG
-    (Electroencephalography) or MEG (Magnetoencephalography) data that is
-    extracted from continuous data based on specific events or triggers.
-    """
-    tmin = -.500  # start of each epoch (in sec)
-    tmax = 2.000  # end of each epoch (in sec)
-    baseline = (None, 0)
-    picks = pick_types(raw.info, meg=False, eeg=True,
-                       stim=False, eog=False, exclude="bads")
-
-    epochs = mne.Epochs(raw,
-                        events=events,
-                        event_id=event_id,
-                        tmin=tmin, tmax=tmax,
-                        baseline=baseline,
-                        picks=picks,
-                        proj=True,
-                        preload=True)
-
-    return epochs
 
 
 def balance_classes(epochs):
@@ -217,11 +113,9 @@ def plot_epochs_image(epochs):
         epochs[keys[0]].plot_image(picks=["Cz"])
 
 
-def split_epochs_train_test(experiment):
+def split_epochs_train_test(E, y):
     """ **Creating data and targets**"""
-    E = experiment["epochs"]
-    y = experiment["y"]
-    test_amount = math.ceil(0.15 * len(E))
+    test_amount = math.ceil(test_size * len(E))
 
     E_test = E[:test_amount]
     y_test = y[:test_amount]
@@ -232,12 +126,11 @@ def split_epochs_train_test(experiment):
     return E_test, y_test, E_train, y_train
 
 
-def average_over_epochs(ex):
-    E_test, y_test, E_train, y_train = split_epochs_train_test(ex)
+def average_over_epochs(X, y, event_id):
+    E_test, y_test, E_train, y_train = split_epochs_train_test(X, y)
     new_x = []
     new_y = []
 
-    event_id = E_train.event_id
     keys = list(event_id.keys())
 
     if len(E_train[keys[0]]) > len(E_train[keys[1]]):
@@ -344,17 +237,17 @@ def make_clf():
     return clf
 
 
-def dump_model(ex):
+def dump_model(clf, name, amount_of_subjects):
     joblib.dump(
-        ex["clf"],
-        f'{ex["name"]}_{amount_of_subjects}_subjects.joblib'
+        clf,
+        f'{name}_{amount_of_subjects}_subjects.joblib'
     )
 
 
 def split_train_test(experiment):
     X = experiment["X"]
     y = experiment["y"]
-    test_amount = math.ceil(0.15 * len(X))
+    test_amount = math.ceil(test_size * len(X))
 
     X_test = X[:test_amount]
     y_test = y[:test_amount]
@@ -365,7 +258,7 @@ def split_train_test(experiment):
     return X_test, y_test, X_train, y_train
 
 
-def score_and_print_results():  
+def score_and_print_results():
     test_scores = []
     train_scores = []
     crossval_scores = []
@@ -394,43 +287,85 @@ def score_and_print_results():
     print("Crossval: ", round(sum(crossval_scores) / len(crossval_scores), 2))
 
 
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description="Predict the classes of a given EEG signal"
+    )
+    parser.add_argument("subject", type=int, help="Subject number")
+    parser.add_argument("run", type=int, help="Run number")
+    args = parser.parse_args()
+
+    check_subject_and_run(args.subject, args.run)
+    return args
+
+
 def main():
-    for i, ex in enumerate(experiments):
-        ex["epochs"] = []
-        batch_start = 0
-        buffer = read_dataset_batch(i, batch_read, batch_start)
-        plot_raw(buffer)
-        while buffer is not None:
-            ex["raw"] = buffer
-            events, event_id = mne.events_from_annotations(ex["raw"])
-            batch_start += batch_read
+    cv = ShuffleSplit(10, test_size=test_size, random_state=42)
 
-            ex["epochs"].append(create_epochs(ex["raw"], events, event_id))
-            del ex["raw"]
+    if len(sys.argv) < 3:
+        for i, ex in enumerate(experiments):
+            ex["epochs"] = []
+            batch_start = 0
             buffer = read_dataset_batch(i, batch_read, batch_start)
+            plot_raw(buffer)
+            while buffer is not None:
+                ex["raw"] = buffer
+                events, event_id = mne.events_from_annotations(ex["raw"])
+                batch_start += batch_read
 
-        ex["epochs"] = mne.concatenate_epochs(ex["epochs"])
-        ex["epochs"] = balance_classes(ex["epochs"])
-        plot_evoked(ex["epochs"])
-        plot_epochs_image(ex["epochs"])
-        plot_compare_evokeds(ex["epochs"])
+                ex["epochs"].append(create_epochs(ex["raw"], events, event_id))
+                del ex["raw"]
+                buffer = read_dataset_batch(i, batch_read, batch_start)
 
-        ex["X"] = ex["epochs"].get_data()
-        ex['y'] = ex["epochs"].events[:, -1]
+            ex["epochs"] = mne.concatenate_epochs(ex["epochs"])
+            ex["epochs"] = balance_classes(ex["epochs"])
+            plot_evoked(ex["epochs"])
+            plot_epochs_image(ex["epochs"])
+            plot_compare_evokeds(ex["epochs"])
 
-        ex["X_avg"], ex["y_avg"] = average_over_epochs(ex)
-        plot_csp_separation(ex["X_avg"], ex["y_avg"])
+            ex['y'] = ex["epochs"].events[:, -1]
 
-        ex["clf"] = make_clf()
+            ex["X_avg"], ex["y_avg"] = average_over_epochs(
+                ex["epochs"],
+                ex["y"],
+                event_id
+            )
+            plot_csp_separation(ex["X_avg"], ex["y_avg"])
 
-        ex["clf"].fit(ex["X_avg"], ex["y_avg"])
-        dump_model(ex)
+            ex["X"] = ex["epochs"].get_data()
 
-        cv = ShuffleSplit(10, test_size=0.2, random_state=42)
-        ex["crossval_scores"] = cross_val_score(
-            ex["clf"], ex["X_avg"], ex["y_avg"], cv=cv, error_score='raise')
+            ex["clf"] = make_clf()
 
-    score_and_print_results()
+            ex["clf"].fit(ex["X_avg"], ex["y_avg"])
+            dump_model(ex["clf"], ex["name"], amount_of_subjects)
+
+            ex["crossval_scores"] = cross_val_score(
+                ex["clf"], ex["X_avg"], ex["y_avg"], cv=cv,
+                error_score='raise')
+        score_and_print_results()
+    else:
+        args = parse_arguments()
+        epochs = read_subject(args.subject, args.run)
+        epochs = balance_classes(epochs)
+
+        plot_evoked(epochs)
+        plot_epochs_image(epochs)
+        plot_compare_evokeds(epochs)
+
+        X_avg = epochs.get_data()
+        y = epochs.events[:, -1]
+
+        X_avg, y_avg = average_over_epochs(epochs, y, epochs.event_id)
+        plot_csp_separation(X_avg, y_avg)
+
+        clf = make_clf()
+        clf.fit(X_avg, y_avg)
+        dump_model(clf, "S" + str(args.subject) + "R" + str(args.run), 1)
+
+        crossval_scores = cross_val_score(
+            clf, X_avg, y_avg, cv=cv, error_score='raise')
+        print(crossval_scores)
+        print("Crossval score: ", np.mean(crossval_scores))
 
 
 if __name__ == "__main__":

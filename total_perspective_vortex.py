@@ -237,9 +237,6 @@ def average_over_epochs(ex):
     new_x = []
     new_y = []
 
-    # Optional: averaging over multiple sizes to increase dataset size
-    sizes = [30]
-
     event_id = E_train.event_id
     keys = list(event_id.keys())
 
@@ -247,6 +244,13 @@ def average_over_epochs(ex):
         max_len = len(E_train[keys[1]])
     else:
         max_len = len(E_train[keys[0]])
+
+    max_avg_size = 30
+    min_amount_of_epochs = 5
+    if max_len < min_amount_of_epochs * max_avg_size:
+        max_avg_size = math.floor(max_len / min_amount_of_epochs)
+    # Optional: averaging over multiple sizes to increase dataset size
+    sizes = [max_avg_size]
 
     for avg_size in sizes:
         print("Averaging epochs over size: ", avg_size, "...")

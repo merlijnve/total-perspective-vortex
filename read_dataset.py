@@ -109,6 +109,7 @@ def read_subject(subject, run):
         sfreq=raw.info["sfreq"]
     )
     raw.set_annotations(annotations)
+    raw = filter_raw(raw)
 
     channels = raw.info["ch_names"]
     bad_channels = [x for x in channels if x not in good_channels]

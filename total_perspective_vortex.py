@@ -66,6 +66,7 @@ from read_dataset import read_dataset_batch
 from read_dataset import create_epochs
 from read_dataset import read_subject
 from read_dataset import check_subject_and_run
+from read_dataset import filter_raw
 
 
 def plot_raw(raw):
@@ -307,7 +308,13 @@ def main():
             ex["epochs"] = []
             batch_start = 0
             buffer = read_dataset_batch(i, batch_read, batch_start)
+
+            # Plot raw
             plot_raw(buffer)
+            buffer_filtered = filter_raw(buffer)
+            # Plot filtered raw
+            plot_raw(buffer_filtered)
+
             while buffer is not None:
                 ex["raw"] = buffer
                 events, event_id = mne.events_from_annotations(ex["raw"])

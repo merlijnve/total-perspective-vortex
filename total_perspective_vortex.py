@@ -1,3 +1,32 @@
+import joblib
+import math
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import ShuffleSplit, cross_val_score
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+import numpy as np
+import mne
+import sys
+import argparse
+
+from MyCSP import MyCSP
+from config import experiments, batch_read
+from config import csp_params
+from config import test_size, amount_of_subjects
+
+from read_dataset import read_dataset_batch
+from read_dataset import create_epochs
+from read_dataset import read_subject
+from read_dataset import check_subject_and_run
+from read_dataset import filter_raw
+
+from plotting import plot_raw
+from plotting import plot_psd
+from plotting import plot_evoked
+from plotting import plot_epochs_image
+from plotting import plot_csp_separation
+from plotting import plot_compare_evokeds
+
+
 """
 1. Left or right fist [R3, R7, R11]
 2. Imagine left or right fist [R4, R8, R12]
@@ -46,35 +75,6 @@ dataset/S{subject_nr}/S{subject_nr}{run_nr}.edf
 ```
 """
 
-import joblib
-import matplotlib.pyplot as plt
-import math
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import ShuffleSplit, cross_val_score
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-import numpy as np
-import mne
-import sys
-import argparse
-
-from MyCSP import MyCSP
-from config import experiments, batch_read
-from config import plotting, csp_params
-from config import test_size, amount_of_subjects
-
-from read_dataset import read_dataset_batch
-from read_dataset import create_epochs
-from read_dataset import read_subject
-from read_dataset import check_subject_and_run
-from read_dataset import filter_raw
-
-
-def plot_raw(raw):
-    """**Plot an instance of raw data**"""
-    if plotting:
-        events, _ = mne.events_from_annotations(raw)
-        raw.plot(scalings=dict(eeg=250e-6), events=events)
-
 
 def balance_classes(epochs):
     print("Balancing classes...")
@@ -94,24 +94,6 @@ def balance_classes(epochs):
     epochs.drop(indices)
 
     return epochs
-
-
-def plot_evoked(epochs):
-    """**Plotting an evoked**"""
-    if plotting:
-        keys = list(epochs.event_id.keys())
-
-        evoked = epochs[keys[0]].average()
-
-        evoked.plot(gfp=True)
-        evoked.plot_topomap(times=[-0.2, 0.2, 0.4, 0.6, 0.8], average=0.05)
-
-
-def plot_epochs_image(epochs):
-    if plotting:
-        keys = list(epochs.event_id.keys())
-
-        epochs[keys[0]].plot_image(picks=["Cz"])
 
 
 def split_epochs_train_test(E, y):
@@ -165,16 +147,6 @@ def average_over_epochs(X, y, event_id):
     return np.array(new_x), np.array(new_y)
 
 
-def plot_csp_separation(X, y):
-    """Plot a scatter_plot of X_train after CSP transformation"""
-    if plotting:
-        csp = MyCSP(csp_params["n_components"])
-        X = csp.fit_transform(X, y)
-
-        plt.scatter(X[:, 0], X[:, 1], c=y)
-        plt.show()
-
-
 """# V.1.2 Treatment pipeline
 
 Then the processing pipeline has to be set up:
@@ -199,20 +171,8 @@ within a delay of 2s after the data chunk was sent to the processing pipeline.
 You have to use the pipeline object from sklearn (use baseEstimator and
 transformerMixin classes of sklearn)
 
-"""
 
-
-def plot_compare_evokeds(epochs):
-    if plotting:
-        keys = list(epochs.event_id.keys())
-        mne.viz.plot_compare_evokeds(
-            dict(left_fist=epochs[keys[0]].average(),
-                 right_fist=epochs[keys[1]].average()),
-            legend="upper left"
-        )
-
-
-"""# V.1.4 Train, Validation, and Test
+# V.1.4 Train, Validation, and Test
 
 • You have to use cross_val_score on the whole processing pipeline, to
 evaluate your classification.
@@ -301,6 +261,10 @@ def parse_arguments():
 
 
 def main():
+    """
+    If no arguments are given, train and test the model on all subjects.
+    Otherwise, train and test the model on the given subject and run.
+    """
     cv = ShuffleSplit(10, test_size=test_size, random_state=42)
 
     if len(sys.argv) < 3:
@@ -311,11 +275,13 @@ def main():
 
             # Plot raw
             plot_raw(buffer)
+            plot_psd(buffer)
             buffer_filtered = filter_raw(buffer)
             # Plot filtered raw
-            plot_raw(buffer_filtered)
+            plot_psd(buffer_filtered)
 
             while buffer is not None:
+                buffer = filter_raw(buffer)
                 ex["raw"] = buffer
                 events, event_id = mne.events_from_annotations(ex["raw"])
                 batch_start += batch_read
@@ -352,7 +318,13 @@ def main():
         score_and_print_results()
     else:
         args = parse_arguments()
-        epochs = read_subject(args.subject, args.run)
+        raw, epochs = read_subject(args.subject, args.run)
+
+        plot_raw(raw)
+        plot_psd(raw)
+        raw_filtered = filter_raw(raw)
+        plot_psd(raw_filtered)
+
         epochs = balance_classes(epochs)
 
         plot_evoked(epochs)

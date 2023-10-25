@@ -83,7 +83,6 @@ def read_dataset_batch(ex_nr, batch, start, runs=make_runs()):
     if len(raws) == 0:
         return None
     raw = mne.concatenate_raws(raws)
-    raw = filter_raw(raw)
 
     channels = raw.info["ch_names"]
     bad_channels = [x for x in channels if x not in good_channels]
@@ -109,14 +108,15 @@ def read_subject(subject, run):
         sfreq=raw.info["sfreq"]
     )
     raw.set_annotations(annotations)
-    raw = filter_raw(raw)
 
-    channels = raw.info["ch_names"]
+    raw_filtered = filter_raw(raw)
+
+    channels = raw_filtered.info["ch_names"]
     bad_channels = [x for x in channels if x not in good_channels]
-    raw.drop_channels(bad_channels)
+    raw_filtered.drop_channels(bad_channels)
 
-    epochs = create_epochs(raw, events, event_id)
-    return epochs
+    epochs = create_epochs(raw_filtered, events, event_id)
+    return raw, epochs
 
 
 def create_epochs(raw, events, event_id):

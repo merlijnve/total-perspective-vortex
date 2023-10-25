@@ -30,7 +30,7 @@ def parse_arguments():
 def predict(model, subject, run):
     print("Predicting subject", subject, "run", run)
 
-    epochs = read_subject(subject, run)
+    raw, epochs = read_subject(subject, run)
     actual = epochs.events[:, -1]
     print("Epoch:\t\t[Prediction]\t[Truth]\tEqual?\tTime to predict")
     for i, e in enumerate(epochs.get_data()):

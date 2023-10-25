@@ -1,4 +1,4 @@
-DATASET_PATH = "/Users/mvan-eng/goinfre/dataset/"
+DATASET_PATH = "/sgoinfre/mvan-eng/total-perspective-vortex/files/"
 MODELS_PATH = "./models/"
 
 amount_of_subjects = 109

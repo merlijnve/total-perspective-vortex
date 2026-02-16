@@ -33,7 +33,7 @@ The project processes 64-channel EEG recordings from 109 subjects performing var
 
 - ✅ **Complete EEG Processing Pipeline:** From raw data to predictions
 - ✅ **Custom CSP Implementation:** Dimensionality reduction optimized for EEG
-- ✅ **Multi-Task Classification:** Supports 6 different experimental conditions
+- ✅ **Multi-task classification:** Supports 6 different experimental conditions
 - ✅ **Real-time Prediction:** Classify motor tasks from streaming EEG data
 - ✅ **Comprehensive Visualization:** Raw data, PSD, evoked responses, and CSP patterns
 - ✅ **Model Persistence:** Save and load trained models for different tasks
@@ -161,7 +161,7 @@ The system classifies 6 different motor tasks:
 
 ### Classification Accuracy by Task
 
-| Task | Left/Right Fist | Imagine L/R Fist | Fists/Feet | Imagine Fists/Feet | Movement of Fists | Movement Fists/Feet |
+| Task | Left/Right Fist | Imagine Left/Right Fist | Fists/Feet | Imagine Fists/Feet | Movement of Fists | Movement Fists/Feet |
 |------|----------------|------------------|------------|-------------------|----------------|-------------------|
 | **Train** | 0.97 (97%) | 0.97 (97%) | 0.75 (75%) | 0.84 (84%) | 0.96 (96%) | 0.76 (76%) |
 | **Cross-Val** | 0.96 (96%) | 0.95 (95%) | 0.61 (61%) | 0.74 (74%) | 0.95 (95%) | 0.73 (73%) |

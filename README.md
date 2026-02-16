@@ -164,7 +164,7 @@ The system classifies 6 different motor tasks:
 | Task | Left/Right Fist | Imagine Left/Right Fist | Fists/Feet | Imagine Fists/Feet | Movement of Fists | Movement Fists/Feet |
 |------|----------------|------------------|------------|-------------------|----------------|-------------------|
 | **Train** | 0.97 (97%) | 0.97 (97%) | 0.75 (75%) | 0.84 (84%) | 0.96 (96%) | 0.76 (76%) |
-| **Cross-Val** | 0.96 (96%) | 0.95 (95%) | 0.61 (61%) | 0.74 (74%) | 0.95 (95%) | 0.73 (73%) |
+| **Cross-Validation** | 0.96 (96%) | 0.95 (95%) | 0.61 (61%) | 0.74 (74%) | 0.95 (95%) | 0.73 (73%) |
 | **Test** | 0.74 (74%) | 0.75 (75%) | 0.60 (60%) | 0.63 (63%) | 0.77 (77%) | 0.63 (63%) |
 
 ### Overall Performance
@@ -172,7 +172,7 @@ The system classifies 6 different motor tasks:
 | Metric | Accuracy |
 |--------|----------|
 | **Mean Train** | 0.87 (87%) |
-| **Mean Cross-Val** | 0.82 (82%) |
+| **Mean Cross-Validation** | 0.82 (82%) |
 | **Mean Test** | 0.69 (69%) ✅ |
 
 The system achieves the target **>60% accuracy** on test data across all subjects and experimental conditions, demonstrating robust generalization to unseen data.

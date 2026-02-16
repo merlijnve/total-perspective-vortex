@@ -161,11 +161,11 @@ The system classifies 6 different motor tasks:
 
 ### Classification Accuracy by Task
 
-| Task | Left/Right Fist | Imagine L/R Fist | Fists/Feet | Imagine Fists/Feet | Movement Fists | Movement Fists/Feet |
+| Task | Left/Right Fist | Imagine L/R Fist | Fists/Feet | Imagine Fists/Feet | Movement of Fists | Movement Fists/Feet |
 |------|----------------|------------------|------------|-------------------|----------------|-------------------|
-| **Train** | 0.97 | 0.97 | 0.75 | 0.84 | 0.96 | 0.76 |
-| **Cross-Val** | 0.96 | 0.95 | 0.61 | 0.74 | 0.95 | 0.73 |
-| **Test** | 0.74 | 0.75 | 0.60 | 0.63 | 0.77 | 0.63 |
+| **Train** | 0.97 (97%) | 0.97 (97%) | 0.75 (75%) | 0.84 (84%) | 0.96 (96%) | 0.76 (76%) |
+| **Cross-Val** | 0.96 (96%) | 0.95 (95%) | 0.61 (61%) | 0.74 (74%) | 0.95 (95%) | 0.73 (73%) |
+| **Test** | 0.74 (74%) | 0.75 (75%) | 0.60 (60%) | 0.63 (63%) | 0.77 (77%) | 0.63 (63%) |
 
 ### Overall Performance
 
